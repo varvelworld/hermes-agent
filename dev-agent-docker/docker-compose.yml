@@ -1,39 +1,31 @@
 # =============================================================================
-# docker-compose.yml — Dev Agent (Hermes + OpenCode + Claude Code + SSH)
+# docker-compose.yml — All-in-one dev agent Docker workspace
 #
 # Usage:
-#   cd docker/
-#   cp .env.example .env && vim .env      # set WORKSPACE_DIR (and API keys)
-#   mkdir -p ~/code/workspace             # create host workspace dir
-#   docker compose up -d --build          # build & start
-#   ssh -p 2222 root@localhost            # SSH login
-#
-#   docker compose down                   # stop (volumes preserved)
-#   docker compose down -v               # stop & wipe all data
+#   cd dev-agent-docker/
+#   cp .env.example .env && vim .env
+#   mkdir -p ~/code/workspace
+#   docker compose up -d --build
+#   ssh -p 2222 root@localhost
 # =============================================================================
 
 services:
   dev-agent:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.dev
+      dockerfile: dev-agent-docker/Dockerfile
     container_name: agent-dev
     hostname: agent-dev
     stdin_open: true
     tty: true
+
     ports:
-      - "127.0.0.1:2222:22"           # SSH
-      - "127.0.0.1:4096:4096"         # App
+      - "127.0.0.1:2222:22"
+      - "127.0.0.1:4096:4096"
 
     volumes:
-      # Host workspace directory (set WORKSPACE_DIR in .env, default: ~/code/workspace)
       - ${WORKSPACE_DIR:-~/code/workspace}:/workspace:cached
-
-      # SSH public key (read-only mount)
-      # Adjust the path if your key has a different name
       - ~/.ssh/id_ed25519.pub:/tmp/host_pubkey:ro
-
-      # Persistent agent data (named volumes)
       - agent-hermes-data:/root/.hermes
       - agent-opencode-data:/root/.opencode
       - agent-config-data:/root/.config
@@ -49,7 +41,6 @@ services:
       - HERMES_HOME=/root/.hermes
       - LARKSUITE_CLI_DATA_DIR=/root/.lark-cli/data
       - TERM=xterm-256color
-      # Proxy: route through host machine (host.docker.internal resolves to host IP)
       - http_proxy=http://host.docker.internal:${PROXY_PORT:-7890}
       - https_proxy=http://host.docker.internal:${PROXY_PORT:-7890}
       - HTTP_PROXY=http://host.docker.internal:${PROXY_PORT:-7890}
@@ -61,9 +52,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-    # Default: keep container running for SSH access
-    # Entry point starts both sshd and hermes gateway in one container.
-    # Override with: docker compose run --rm dev-agent hermes
     command: ["sleep", "infinity"]
     restart: unless-stopped
 
